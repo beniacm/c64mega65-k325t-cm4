@@ -96,14 +96,8 @@ set_false_path -to   [get_cells -hierarchical -filter {NAME =~ i_framework/*ext_
 
 set_false_path -from [get_ports {reset_button rk_sck rk_cs_n rk_mosi}]
 set_false_path -to   [get_ports {rk_miso led[*]}]
-## debug word (quasi-static levels sampled by rk_bridge's STATUS reply)
-set_false_path -from [get_cells -hierarchical -filter {NAME =~ dbg_a_reg*}]
-set_false_path -from [get_cells -hierarchical -filter {NAME =~ dbg_b_reg*}]
-set_false_path -to   [get_cells -hierarchical -filter {NAME =~ dbg_a_reg*}]
 ## paddles / mouse: slowly changing values, stable-filtered in rk_bridge's cpuclk domain
 set_false_path -from [get_cells -hierarchical -filter {NAME =~ i_rk_bridge/pots_c_reg*}]
-set_false_path -from [get_cells -hierarchical -filter {NAME =~ dbg_ext_reg*}]
-set_false_path -to   [get_cells -hierarchical -filter {NAME =~ dbg_ext_reg*}]
 
 ## ---------------------------------------------------------------- configuration flash / multiboot
 ## QSPI flash (S25FL128L), written by the Rockchip through rk_bridge; CCLK via STARTUPE2.

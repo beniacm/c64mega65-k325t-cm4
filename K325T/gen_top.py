@@ -76,10 +76,6 @@ fw.insert(last + 1, '''      ext_hr_clk_i            => mig_ui_clk,
       ext_avm_readdatavalid_i => mem_readdatavalid,
       ext_avm_waitrequest_i   => mem_waitrequest''')
 core = remap(core, CORE, None)
-# core: debug port (bring-up), inserted after the last port association
-last = max(k for k, l in enumerate(core) if '=>' in l)
-core[last] = core[last].rstrip() + ','
-core.insert(last + 1, '         main_dbg_o              => core_dbg')
 
 tpl = open(sys.argv[3]).read()
 tpl = tpl.replace('--@R6_DECLARATIONS@', '\n'.join(decl))

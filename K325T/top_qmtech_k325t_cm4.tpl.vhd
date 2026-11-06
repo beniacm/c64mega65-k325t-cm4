@@ -173,36 +173,6 @@ architecture synthesis of qmtech_k325t_cm4 is
    signal reset_s           : std_logic_vector(2 downto 0) := (others => '0');
    signal sys_reset_n       : std_logic := '0';
    signal heartbeat         : unsigned(25 downto 0) := (others => '0');
-   -- debug word for the Rockchip (rk_bridge STATUS bytes 18/19)
-   signal dbg_a             : unsigned(7 downto 0) := (others => '0');
-   signal dbg_b             : unsigned(3 downto 0) := (others => '0');
-   signal dbg_vs_d          : std_logic := '0';
-   signal dbg_vs_cnt        : unsigned(3 downto 0) := (others => '0');
-   signal dbg_core_pend     : unsigned(9 downto 0) := (others => '0');
-   signal dbg_core_wait     : unsigned(17 downto 0) := (others => '0');
-   signal dbg_mem_wait      : unsigned(17 downto 0) := (others => '0');
-   -- probe on word address 0x200000 (start of the CRT / REU area), STATUS bytes 20..51
-   signal dbg_ext           : std_logic_vector(255 downto 0) := (others => '0');
-   signal pa_wcnt, pb_wcnt, pb_rcnt : unsigned(15 downto 0) := (others => '0');
-   signal pa_wlast          : std_logic_vector(15 downto 0) := (others => '0');
-   signal pa_rd             : std_logic_vector(127 downto 0) := (others => '0');
-   signal pb_rd             : std_logic_vector(63 downto 0) := (others => '0');
-   signal pa_idx, pb_idx    : integer range 0 to 8 := 8;
-   signal pa_sum            : unsigned(15 downto 0) := (others => '0');
-   signal pa_cnt            : unsigned(12 downto 0) := (others => '1');
-   signal core_dbg          : std_logic_vector(23 downto 0);   -- C64 core: flags + address bus
-   -- bank-load log: the last 4 cartridge loads (a 128-word read not contiguous with the previous
-   -- one starts a load): word address, sum of the words read, number of words (up to 4096)
-   type ld_addr_t is array (0 to 3) of unsigned(23 downto 0);
-   type ld_sum_t  is array (0 to 3) of unsigned(15 downto 0);
-   type ld_cnt_t  is array (0 to 3) of unsigned(12 downto 0);
-   signal ld_addr  : ld_addr_t := (others => (others => '0'));
-   signal ld_sum   : ld_sum_t  := (others => (others => '0'));
-   signal ld_cnt   : ld_cnt_t  := (others => (others => '0'));
-   signal ld_next  : unsigned(23 downto 0) := (others => '1');
-   signal ld_total : unsigned(15 downto 0) := (others => '0');
-   -- traffic counters at avm_mig's input: scaler area (< word 0x200000) vs the core's area
-   signal tc_dig_w, tc_dig_r, tc_core_r, tc_core_w : unsigned(31 downto 0) := (others => '0');
 
    ---------------------------------------------------------------------------------------
    -- from top_mega65-r6.vhd
@@ -322,7 +292,7 @@ begin
          mon_rx => qnice_uart_rx, mon_tx => qnice_uart_tx,
          matrix_col_idx => kb_col_idx, matrix_col => kb_col,
          joya => rk_joya, joyb => rk_joyb, ctrl => rk_ctrl,
-         eth_tx_drops => dbg_a, eth_rx_free => dbg_b, pots => rk_pots, dbg_ext => dbg_ext,
+         pots => rk_pots,
          flash_active => open, flash_sck => fl_sck, flash_cs_n => fl_cs_n,
          flash_mosi => fl_mosi, flash_miso => fl_miso,
          iprog_toggle => ip_toggle, iprog_addr => ip_addr,
@@ -384,117 +354,6 @@ begin
    cart_ba_in    <= '1'; cart_rw_in   <= '1'; cart_io1_in   <= '1'; cart_io2_in  <= '1';
    cart_d_in     <= (others => '1');
    cart_a_in     <= (others => '1');
-
-   ---------------------------------------------------------------- debug (Rockchip STATUS 18/19)
-   -- byte 19: b0 MIG calibrated, b1 MIG ui reset, b2 core paused (QNICE), b3 core reset,
-   --          b4 M2M reset, b5 frame counter bit (core vsync / 4), b6 core memory request
-   --          stuck > 1.3 ms, b7 bridge request or read data stuck > 1.3 ms
-   -- byte 18: outstanding core read beats (saturated at 15)
-   process (video_clk)
-   begin
-      if rising_edge(video_clk) then
-         dbg_vs_d <= video_vs;
-         if video_vs = '1' and dbg_vs_d = '0' then
-            dbg_vs_cnt <= dbg_vs_cnt + 1;
-         end if;
-      end if;
-   end process;
-
-   process (mig_ui_clk)
-   begin
-      if rising_edge(mig_ui_clk) then
-         if hr_core_read = '1' and hr_core_waitrequest = '0' then
-            if hr_core_readdatavalid = '1' then
-               dbg_core_pend <= dbg_core_pend + unsigned(hr_core_burstcount) - 1;
-            else
-               dbg_core_pend <= dbg_core_pend + unsigned(hr_core_burstcount);
-            end if;
-         elsif hr_core_readdatavalid = '1' then
-            dbg_core_pend <= dbg_core_pend - 1;
-         end if;
-         -- a request held with waitrequest high, or read data owed (pend /= 0), for a long time
-         if (hr_core_read = '1' or hr_core_write = '1' or dbg_core_pend /= 0) and hr_core_readdatavalid = '0'
-            and not (hr_core_waitrequest = '0' and (hr_core_read = '1' or hr_core_write = '1')) then
-            if dbg_core_wait(17) = '0' then dbg_core_wait <= dbg_core_wait + 1; end if;
-         else
-            dbg_core_wait <= (others => '0');
-         end if;
-         if (mem_read = '1' or mem_write = '1') and mem_waitrequest = '1' and mem_readdatavalid = '0' then
-            if dbg_mem_wait(17) = '0' then dbg_mem_wait <= dbg_mem_wait + 1; end if;
-         elsif mem_readdatavalid = '1' or mem_waitrequest = '0' then
-            dbg_mem_wait <= (others => '0');
-         end if;
-         -- A: the core's port (hr_core_*), B: avm_mig's input (after the framework arbiter)
-         if hr_core_write = '1' and hr_core_waitrequest = '0' and
-            unsigned(hr_core_address(31 downto 3)) = 16#200000# / 8 then
-            pa_wcnt <= pa_wcnt + 1;
-            null;
-         end if;
-         if hr_core_read = '1' and hr_core_waitrequest = '0' and unsigned(hr_core_address) = 16#200028# then   -- ROML bank 0 data (file offset $50)
-            pa_idx <= 0;
-            pa_cnt <= (others => '0');
-            pa_sum <= (others => '0');
-         elsif hr_core_readdatavalid = '1' then
-            if pa_idx < 8 then
-               pa_rd(16 * pa_idx + 15 downto 16 * pa_idx) <= hr_core_readdata;
-               pa_idx <= pa_idx + 1;
-            end if;
-            if pa_cnt < 4096 then           -- sum of the 8 KB bank (4096 words) from the hit
-               pa_sum <= pa_sum + unsigned(hr_core_readdata);
-               pa_cnt <= pa_cnt + 1;
-            end if;
-         end if;
-         pa_wlast <= std_logic_vector(pa_sum);
-         if mem_write = '1' and mem_waitrequest = '0' and
-            unsigned(mem_address(31 downto 3)) = 16#200000# / 8 then
-            pb_wcnt <= pb_wcnt + 1;
-         end if;
-         if mem_read = '1' and mem_waitrequest = '0' and unsigned(mem_address) = 16#200000# then
-            pb_idx <= 0;
-            pb_rcnt <= pb_rcnt + 1;
-         elsif mem_readdatavalid = '1' and pb_idx < 4 then
-            pb_rd(16 * pb_idx + 15 downto 16 * pb_idx) <= mem_readdata;
-            pb_idx <= pb_idx + 1;
-         end if;
-         if hr_core_read = '1' and hr_core_waitrequest = '0' and hr_core_burstcount = x"80" then
-            ld_next <= unsigned(hr_core_address(23 downto 0)) + 16#80#;
-            if unsigned(hr_core_address(23 downto 0)) /= ld_next then     -- a new bank load
-               for i in 3 downto 1 loop
-                  ld_addr(i) <= ld_addr(i - 1); ld_sum(i) <= ld_sum(i - 1); ld_cnt(i) <= ld_cnt(i - 1);
-               end loop;
-               ld_addr(0) <= unsigned(hr_core_address(23 downto 0));
-               ld_sum(0)  <= (others => '0');
-               ld_cnt(0)  <= (others => '0');
-               ld_total   <= ld_total + 1;
-            end if;
-         elsif hr_core_readdatavalid = '1' and ld_cnt(0) < 4096 then
-            ld_sum(0) <= ld_sum(0) + unsigned(hr_core_readdata);
-            ld_cnt(0) <= ld_cnt(0) + 1;
-         end if;
-         if mem_write = '1' and mem_waitrequest = '0' then
-            if unsigned(mem_address) < 16#200000# then tc_dig_w <= tc_dig_w + 1;
-            else tc_core_w <= tc_core_w + 1; end if;
-         end if;
-         if mem_read = '1' and mem_waitrequest = '0' then
-            if unsigned(mem_address) < 16#200000# then tc_dig_r <= tc_dig_r + 1;
-            else tc_core_r <= tc_core_r + 1; end if;
-         end if;
-         for i in 0 to 1 loop
-            dbg_ext(53 * i + 52 downto 53 * i) <= std_logic_vector(ld_addr(i)) & std_logic_vector(ld_sum(i)) &
-                                                  std_logic_vector(ld_cnt(i));
-         end loop;
-         dbg_ext(137 downto 106) <= std_logic_vector(tc_dig_w);   -- beats written, scaler area
-         dbg_ext(169 downto 138) <= std_logic_vector(tc_dig_r);   -- read bursts, scaler area
-         dbg_ext(201 downto 170) <= std_logic_vector(tc_core_r);  -- read bursts, core area
-         dbg_ext(211 downto 202) <= std_logic_vector(tc_core_w(9 downto 0));
-         dbg_ext(227 downto 212) <= std_logic_vector(ld_total);
-         dbg_ext(231 downto 228) <= (others => '0');
-         dbg_ext(255 downto 232) <= core_dbg;
-         dbg_a <= dbg_mem_wait(17) & dbg_core_wait(17) & dbg_vs_cnt(2) & main_reset_m2m &
-                  main_reset_core & main_qnice_pause & mig_ui_rst & mig_calib;
-         if dbg_core_pend > 15 then dbg_b <= x"F"; else dbg_b <= dbg_core_pend(3 downto 0); end if;
-      end if;
-   end process;
 
    led(0) <= mig_calib;
    led(1) <= main_drive_led;

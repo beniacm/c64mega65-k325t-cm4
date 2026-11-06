@@ -239,11 +239,7 @@ entity main is
       -- Bits 55 - 48 : DayOfWeek  (0x00-0x06)
       -- Bits 63 - 56 : 0x40
       -- Bit       64 : Toggle flag
-      rtc_i                  : in  std_logic_vector(64 downto 0);
-
-      -- debug (K325T bring-up): b0 CPU held by DMA, b1 REU DMA request, b2 CRT bank wait,
-      -- b3 CRT loading, b4 core reset (active high), b5 REU IRQ, b7..6 expansion port mode
-      dbg_o                  : out std_logic_vector(7 downto 0)
+      rtc_i                  : in  std_logic_vector(64 downto 0)
    );
 end entity main;
 
@@ -501,9 +497,6 @@ architecture synthesis of main is
    end component rtcF83;
 
 begin
-
-   dbg_o <= std_logic_vector(to_unsigned(c64_exp_port_mode_i, 2)) & reu_irq & (not reset_core_n) &
-            cartridge_loading_i & crt_bank_wait_i & reu_dma_req & core_dma;
    -- prevent data corruption by not allowing a soft reset to happen while the cache is still dirty
    -- since we can have more than one cache that might be dirty, we convert the std_logic_vector of length G_VDNUM
    -- into an unsigned and check for zero
