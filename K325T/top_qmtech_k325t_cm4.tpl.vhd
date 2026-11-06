@@ -44,6 +44,9 @@ port (
    rk_cs_n      : in    std_logic;
    rk_mosi      : in    std_logic;
    rk_miso      : out   std_logic;
+   -- QSPI configuration flash (S25FL128L), CCLK via STARTUPE2; the Rockchip writes it
+   qspi_csn     : out   std_logic;
+   qspi_db      : inout std_logic_vector(3 downto 0);
 
    -- DDR3 (MT41K128M16, bank 34) -- names match the MIG's pin constraints
    ddr3_dq      : inout std_logic_vector(15 downto 0);
@@ -158,6 +161,10 @@ architecture synthesis of qmtech_k325t_cm4 is
    signal rk_joya, rk_joyb  : std_logic_vector(4 downto 0);
    signal rk_ctrl           : std_logic_vector(7 downto 0);
    signal rk_pots           : std_logic_vector(31 downto 0);   -- pot1 x/y, pot2 x/y (SID values)
+   -- configuration flash (Rockchip pass-through) and warm boot into another slot
+   signal fl_sck, fl_cs_n, fl_mosi, fl_miso : std_logic;
+   signal ip_toggle         : std_logic;
+   signal ip_addr           : std_logic_vector(31 downto 0);
    signal core_pots         : std_logic_vector(31 downto 0);   -- the core inverts its pot inputs
    signal joya_n, joyb_n    : std_logic_vector(4 downto 0);
    signal caps_n, rest_n    : std_logic;
@@ -302,7 +309,8 @@ begin
    -- Rockchip bridge: SD sectors, key matrix, joysticks, QNICE UART
    ---------------------------------------------------------------------------------------
    i_rk_bridge : entity work.rk_bridge
-      generic map (BIT_CLKS => 1412)       -- 162.71 MHz / 115200 baud (QNICE UART)
+      generic map (BIT_CLKS => 1412,       -- 162.71 MHz / 115200 baud (QNICE UART)
+                   CORE_ID  => x"02")      -- C64
       port map (
          clk => clk162, cpuclk => clk100,
          spi_sck => rk_sck, spi_cs_n => rk_cs_n, spi_mosi => rk_mosi, spi_miso => rk_miso,
@@ -315,6 +323,9 @@ begin
          matrix_col_idx => kb_col_idx, matrix_col => kb_col,
          joya => rk_joya, joyb => rk_joyb, ctrl => rk_ctrl,
          eth_tx_drops => dbg_a, eth_rx_free => dbg_b, pots => rk_pots, dbg_ext => dbg_ext,
+         flash_active => open, flash_sck => fl_sck, flash_cs_n => fl_cs_n,
+         flash_mosi => fl_mosi, flash_miso => fl_miso,
+         iprog_toggle => ip_toggle, iprog_addr => ip_addr,
          spi_active => open
       );
 
@@ -340,6 +351,26 @@ begin
          matrix_col_idx => kb_col_idx, matrix_col => kb_col,
          capslock_n => caps_n, restore_n => rest_n
       );
+
+   ---------------------------------------------------------------------------------------
+   -- Configuration flash: x1 SPI through the Rockchip bridge (DQ0 = MOSI, DQ1 = MISO,
+   -- DQ2 / DQ3 = WP# / HOLD# held high).  CCLK is the user clock of STARTUPE2.
+   ---------------------------------------------------------------------------------------
+   i_startup : STARTUPE2
+      generic map (PROG_USR => "FALSE", SIM_CCLK_FREQ => 0.0)
+      port map (CFGCLK => open, CFGMCLK => open, EOS => open, PREQ => open,
+                CLK => '0', GSR => '0', GTS => '0', KEYCLEARB => '1', PACK => '0',
+                USRCCLKO => fl_sck, USRCCLKTS => '0', USRDONEO => '1', USRDONETS => '1');
+   qspi_csn   <= fl_cs_n;
+   qspi_db(0) <= fl_mosi;
+   qspi_db(1) <= 'Z';
+   qspi_db(2) <= '1';
+   qspi_db(3) <= '1';
+   fl_miso    <= qspi_db(1);
+
+   -- Rockchip command 0x60: warm boot into the bitstream at ip_addr (flash slot)
+   i_iprog : entity work.rk_iprog
+      port map (clk => clk100, iprog_toggle => ip_toggle, iprog_addr => ip_addr);
 
    core_pots <= not rk_pots;               -- SID POTX/POTY = not pot input (fpga64_sid_iec)
    joya_n <= not rk_joya;                  -- b0 up b1 down b2 left b3 right b4 fire

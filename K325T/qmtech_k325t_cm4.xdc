@@ -104,3 +104,18 @@ set_false_path -to   [get_cells -hierarchical -filter {NAME =~ dbg_a_reg*}]
 set_false_path -from [get_cells -hierarchical -filter {NAME =~ i_rk_bridge/pots_c_reg*}]
 set_false_path -from [get_cells -hierarchical -filter {NAME =~ dbg_ext_reg*}]
 set_false_path -to   [get_cells -hierarchical -filter {NAME =~ dbg_ext_reg*}]
+
+## ---------------------------------------------------------------- configuration flash / multiboot
+## QSPI flash (S25FL128L), written by the Rockchip through rk_bridge; CCLK via STARTUPE2.
+set_property -dict {PACKAGE_PIN B24 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports {qspi_db[0]}]
+set_property -dict {PACKAGE_PIN A25 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports {qspi_db[1]}]
+set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports {qspi_db[2]}]
+set_property -dict {PACKAGE_PIN A22 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports {qspi_db[3]}]
+set_property -dict {PACKAGE_PIN C23 IOSTANDARD LVCMOS33}             [get_ports qspi_csn]
+set_false_path -to   [get_ports {qspi_csn qspi_db[*]}]
+set_false_path -from [get_ports {qspi_db[*]}]
+## a slot that fails to configure (CRC / ID error) falls back to the image at address 0
+set_property BITSTREAM.CONFIG.CONFIGFALLBACK ENABLE [current_design]
+## rk_iprog: request toggle and address come from the bridge clock (synchronised / stable)
+set_false_path -to [get_cells -hierarchical -filter {NAME =~ i_iprog/tog_s_reg[0]*}]
+set_false_path -to [get_cells -hierarchical -filter {NAME =~ i_iprog/addr_s_reg*}]
