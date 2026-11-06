@@ -162,6 +162,8 @@ port (
    main_pot1_y_i           : in  std_logic_vector(7 downto 0);
    main_pot2_x_i           : in  std_logic_vector(7 downto 0);
    main_pot2_y_i           : in  std_logic_vector(7 downto 0);
+   -- debug (K325T bring-up): 7..0 see main.vhd dbg_o, 23..8 C64 address bus
+   main_dbg_o              : out std_logic_vector(23 downto 0);
    main_rtc_i              : in  std_logic_vector(64 downto 0);
 
    -- CBM-488/IEC serial port
@@ -402,6 +404,8 @@ signal qnice_crt_qnice_wait         : std_logic;
 
 begin
 
+   main_dbg_o(23 downto 8) <= std_logic_vector(main_ram_addr);
+
    -- MMCME2_ADV clock generators
    --   C64 PAL: 31.528 MHz (main) and 63.056 MHz (video)
    --            HDMI: Flicker-free: 0.25% slower
@@ -625,6 +629,7 @@ begin
 
          -- C64 RAM
          c64_ram_addr_o         => main_ram_addr,
+         dbg_o                  => main_dbg_o(7 downto 0),
          c64_ram_data_o         => main_ram_data_from_c64,
          c64_ram_we_o           => main_ram_we,
          c64_ram_data_i         => unsigned(main_ram_data_to_c64),

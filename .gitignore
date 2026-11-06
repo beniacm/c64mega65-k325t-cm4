@@ -22,3 +22,6 @@ M2M/rom/*.lis
 M2M/rom/*.out
 M2M/rom/*.rom
 M2M/video_filters/*.out
+CORE/CORE-K325T.xpr
+CORE/CORE-K325T.gen
+CORE/CORE-K325T.srcs
