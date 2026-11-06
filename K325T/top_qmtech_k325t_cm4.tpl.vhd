@@ -168,6 +168,7 @@ architecture synthesis of qmtech_k325t_cm4 is
    signal core_pots         : std_logic_vector(31 downto 0);   -- the core inverts its pot inputs
    signal joya_n, joyb_n    : std_logic_vector(4 downto 0);
    signal caps_n, rest_n    : std_logic;
+   signal kb_up_n, kb_left_n : std_logic;
 
    -- reset
    signal reset_s           : std_logic_vector(2 downto 0) := (others => '0');
@@ -312,6 +313,8 @@ begin
       );
 
    caps_n <= not rk_ctrl(2);
+   kb_up_n   <= not rk_ctrl(4);              -- INPUT ctrl b4 / b5: cursor up / left keys
+   kb_left_n <= not rk_ctrl(5);
    rest_n <= not rk_ctrl(1);
 
    i_kbd_emu : entity work.m65kbd_emu
@@ -319,7 +322,8 @@ begin
       port map (
          clk => clk100, kio8 => kio8, kio10 => kio10,
          matrix_col_idx => kb_col_idx, matrix_col => kb_col,
-         capslock_n => caps_n, restore_n => rest_n
+         capslock_n => caps_n, restore_n => rest_n,
+         up_n => kb_up_n, left_n => kb_left_n          -- cursor up / left keys
       );
 
    ---------------------------------------------------------------------------------------

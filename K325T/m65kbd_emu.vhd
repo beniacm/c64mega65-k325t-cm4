@@ -32,7 +32,11 @@ entity m65kbd_emu is
     matrix_col_idx : out integer range 0 to 15;
     matrix_col     : in  std_logic_vector(7 downto 0);    -- active low
     capslock_n     : in  std_logic := '1';
-    restore_n      : in  std_logic := '1'
+    restore_n      : in  std_logic := '1';
+    -- the MEGA65 keyboard's dedicated cursor up / left keys (0 = pressed); the C64 core turns
+    -- them into RIGHT SHIFT + vertical / horizontal cursor itself (keyboard.vhd, keys 73/74)
+    up_n           : in  std_logic := '1';
+    left_n         : in  std_logic := '1'
   );
 end entity;
 
@@ -68,6 +72,10 @@ begin
         kio10 <= matrix_col(p mod 8);
       elsif p = 72 then
         kio10 <= capslock_n;
+      elsif p = 73 then
+        kio10 <= up_n;
+      elsif p = 74 then
+        kio10 <= left_n;
       elsif p = 75 then
         kio10 <= restore_n;
       elsif p = 76 then
