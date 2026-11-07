@@ -391,7 +391,7 @@ constant OPTM_ITEMS        : string :=
    " Expansion Port\n"          &
    "\n"                         &
    " Use hardware slot\n"       &
-   " Simulate 1750 REU 512KB\n" &
+   " Simulate REU 16MB\n"       &
    " Simulate cartridge:\n"     &
    " CRT:%s\n"                  &  -- %s will be replaced by OPTM_S_CRTROM when no cartridge is loaded, otherwise by the filename of the cartridge
    "\n"                         &

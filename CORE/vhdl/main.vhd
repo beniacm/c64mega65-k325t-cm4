@@ -57,7 +57,7 @@ entity main is
 
       -- Mode selection for Expansion Port (aka Cartridge Port):
       -- 0: Use the MEGA65's actual hardware slot
-      -- 1: Simulate a 1750 REU with 512KB
+      -- 1: Simulate a REU with 16MB (K325T; upstream: 1750 with 512KB)
       -- 2: Simulate a cartridge by using a cartridge from from the SD card (.crt file)
       c64_exp_port_mode_i    : in  natural range 0 to 2;
 
@@ -1017,7 +1017,7 @@ begin
    --------------------------------------------------------------------------------------------------
 
    -- REU configuration: "00":None, "01":512k, "10":2M, "11":16M
-   reu_cfg <= "01" when c64_exp_port_mode_i = C_EXP_PORT_REU else "00";
+   reu_cfg <= "11" when c64_exp_port_mode_i = C_EXP_PORT_REU else "00";   -- K325T: 16 MB (DDR3)
 
    reu_inst : component reu
       port map (
