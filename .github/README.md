@@ -31,9 +31,17 @@ joysticks and the 1351 mouse (USB mouse via the Rockchip).
 
 ```
 K325T/build.sh            # ~8 min -> K325T/bin/c64_k325t_cm4.bit
+K325T/build.sh radxacm3   # Radxa CM3 module -> K325T/bin/c64_k325t_cm4_radxacm3.bit
 ```
 The QNICE firmware needs its assembler built once (`M2M/QNICE/assembler/`).  Vivado 2025.2 was
 used.  Written to flash slot 1 from the Rockchip (`m65flash.py write 1 …` in the harness).
+
+`radxacm3` is for a Radxa CM3 in the carrier's CM4 socket instead of the Luckfox Core3566: the
+Radxa puts the Rockchip's SPI3 (M0) on BCM8-11, so `build.sh` replaces the "CM bus" section of
+`qmtech_k325t_cm4.xdc` (between the `## >>> CM bus` / `## <<< CM bus` markers) with
+`qmtech_k325t_cm4_radxacm3_bus.xdc` (CS A12, MISO D14, MOSI C13, SCK D13).  Everything else is
+the same design.  Do not load one module's bitstream with the other module fitted (each drives
+its SPI MISO on a line that is a module output on the other).
 
 ## Following upstream
 

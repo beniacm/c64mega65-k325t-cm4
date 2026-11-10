@@ -31,11 +31,13 @@ set_property -dict {PACKAGE_PIN A19 IOSTANDARD TMDS_33} [get_ports {tmds_data_n[
 set_property -dict {PACKAGE_PIN B20 IOSTANDARD TMDS_33} [get_ports tmds_clk_p]
 set_property -dict {PACKAGE_PIN A20 IOSTANDARD TMDS_33} [get_ports tmds_clk_n]
 
+## >>> CM bus: this section is replaced for other modules (qmtech_k325t_cm4_radxacm3_bus.xdc, build.sh)
 ## Rockchip spi3-m1 (CM4 bus). rk_miso is the only FPGA output on this bus.
 set_property -dict {PACKAGE_PIN A8  IOSTANDARD LVCMOS33 PULLDOWN TRUE} [get_ports rk_sck]
 set_property -dict {PACKAGE_PIN A9  IOSTANDARD LVCMOS33 PULLDOWN TRUE} [get_ports rk_mosi]
 set_property -dict {PACKAGE_PIN B15 IOSTANDARD LVCMOS33 PULLUP TRUE}   [get_ports rk_cs_n]
 set_property -dict {PACKAGE_PIN B9  IOSTANDARD LVCMOS33 DRIVE 8}       [get_ports rk_miso]
+## <<< CM bus
 
 ## ---------------------------------------------------------------- clocks
 create_clock -period 20.000 -name clk_in [get_ports clk_in]
